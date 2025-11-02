@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 
-export default function WalletConnect() {
-  const [publicKey, setPublicKey] = useState('');
+export default function WalletConnect({ onConnect, publicKey: externalPublicKey }) {
+  const [internalPublicKey, setInternalPublicKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [freighterReady, setFreighterReady] = useState(false);
+
+  // Usa la key que viene de fuera (page.tsx) o la interna
+  const displayKey = externalPublicKey || internalPublicKey;
 
   // Detectar Freighter
   useEffect(() => {
@@ -32,7 +35,8 @@ export default function WalletConnect() {
     try {
       const { getPublicKey } = await import('@stellar/freighter-api');
       const key = await getPublicKey();
-      setPublicKey(key);
+      setInternalPublicKey(key);
+      onConnect?.(key); // ENVÍA LA KEY AL PADRE
     } catch (err) {
       setError('Freighter denegó acceso o no está instalada');
     } finally {
@@ -41,7 +45,8 @@ export default function WalletConnect() {
   };
 
   const disconnect = () => {
-    setPublicKey('');
+    setInternalPublicKey('');
+    onConnect?.(''); // LIMPIA EN EL PADRE
   };
 
   const format = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
@@ -59,7 +64,7 @@ export default function WalletConnect() {
           </div>
         )}
 
-        {!publicKey ? (
+        {!displayKey ? (
           <button
             onClick={connect}
             disabled={!freighterReady || loading}
@@ -75,7 +80,7 @@ export default function WalletConnect() {
           <div>
             <div className="bg-green-50 p-4 rounded-lg mb-4">
               <p className="text-green-800 font-bold">Conectado</p>
-              <p className="font-mono text-sm break-all">{format(publicKey)}</p>
+              <p className="font-mono text-sm break-all">{format(displayKey)}</p>
             </div>
             <button
               onClick={disconnect}
