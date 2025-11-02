@@ -1,102 +1,75 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
-export default function WalletConnect({ onConnect, publicKey: externalPublicKey }) {
-  const [internalPublicKey, setInternalPublicKey] = useState('');
+export default function WalletConnect() {
+  const [publicKey, setPublicKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [freighterReady, setFreighterReady] = useState(false);
 
-  // Usa la key que viene de fuera (page.tsx) o la interna
-  const displayKey = externalPublicKey || internalPublicKey;
-
-  // Detectar Freighter
-  useEffect(() => {
-    const check = () => {
-      if (typeof window !== 'undefined' && (window.freighter || window.freighterApi)) {
-        setFreighterReady(true);
-      }
-    };
-
-    check();
-    const interval = setInterval(check, 1000);
-    setTimeout(() => clearInterval(interval), 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const connect = async () => {
-    if (!freighterReady) return;
-
+  const connectWallet = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { getPublicKey } = await import('@stellar/freighter-api');
-      const key = await getPublicKey();
-      setInternalPublicKey(key);
-      onConnect?.(key); // ENVÍA LA KEY AL PADRE
+      await new Promise(r => setTimeout(r, 1000));
+
+      if (!window.freighter) {
+        throw new Error('Freighter no está instalado');
+      }
+
+      const key = await window.freighter.getPublicKey();
+      setPublicKey(key);
     } catch (err) {
-      setError('Freighter denegó acceso o no está instalada');
+      setError(err.message || 'Error al conectar');
+      console.error('Error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const disconnect = () => {
-    setInternalPublicKey('');
-    onConnect?.(''); // LIMPIA EN EL PADRE
+    setPublicKey('');
+    setError('');
   };
 
   const format = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-        <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
-          Stellar Wallet
-        </h1>
+    <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full border">
+      <h1 className="text-3xl font-bold text-center mb-6">Stellar Wallet</h1>
+      <p className="text-center text-gray-600 mb-8">Conecta tu Freighter Wallet</p>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded text-red-700 text-sm">
-            {error}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
+      {!publicKey ? (
+        <button
+          onClick={connectWallet}
+          disabled={loading}
+          className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
+        >
+          {loading ? 'Conectando...' : 'Conectar Wallet'}
+        </button>
+      ) : (
+        <div>
+          <div className="bg-green-50 p-4 rounded-lg mb-4 border border-green-300">
+            <p className="font-bold text-green-800 mb-2">✅ Wallet Conectada</p>
+            <p className="font-mono text-sm p-2 bg-white rounded border break-all">
+              {format(publicKey)}
+            </p>
           </div>
-        )}
-
-        {!displayKey ? (
           <button
-            onClick={connect}
-            disabled={!freighterReady || loading}
-            className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${
-              freighterReady
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            onClick={disconnect}
+            className="w-full py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition"
           >
-            {loading ? 'Conectando...' : freighterReady ? 'Conectar Wallet' : 'Esperando Freighter...'}
+            Desconectar
           </button>
-        ) : (
-          <div>
-            <div className="bg-green-50 p-4 rounded-lg mb-4">
-              <p className="text-green-800 font-bold">Conectado</p>
-              <p className="font-mono text-sm break-all">{format(displayKey)}</p>
-            </div>
-            <button
-              onClick={disconnect}
-              className="w-full py-3 px-6 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              Desconectar
-            </button>
-          </div>
-        )}
-
-        <p className="text-xs text-center text-gray-500 mt-4">
-          <a href="https://freighter.app" target="_blank" className="text-blue-600 underline">
-            ¿No tienes Freighter?
-          </a>
-        </p>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
